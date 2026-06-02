@@ -76,9 +76,32 @@
     .stat .k { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
     .stat .v { font-family: var(--font-mono); margin-top: var(--space-2); }
     .preview-grid { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: var(--space-5); }
-    .canvas-wrap, .ascii-wrap { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); min-height: 320px; }
-    .canvas-wrap canvas { width: 100%; height: auto; border-radius: var(--radius-md); background: #0a0d12; }
+    .canvas-wrap, .ascii-wrap { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); min-height: 320px; display: flex; flex-direction: column; }
+    .img-preview-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0d12;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      min-height: 240px;
+    }
+    .img-preview-area img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: var(--radius-md);
+    }
+    .img-preview-area .empty-msg {
+      color: var(--faint);
+      font-size: var(--text-xs);
+      text-align: center;
+      padding: var(--space-4);
+    }
     .ascii-wrap textarea {
+      flex: 1;
       min-height: 420px; resize: vertical; background: #0a0d12; color: var(--text); border: 1px solid rgba(103,232,249,0.12);
       font-family: var(--font-mono); font-size: 11px; line-height: 1; white-space: pre; overflow: auto;
     }
@@ -206,7 +229,9 @@
             <div class="preview-head">
               <span class="badge">Original</span>
             </div>
-            <canvas id="previewCanvas"></canvas>
+            <div class="img-preview-area" id="imgPreviewArea">
+              <span class="empty-msg">Upload an image to preview</span>
+            </div>
           </div>
           <div class="ascii-wrap">
             <div class="preview-head">
@@ -232,7 +257,7 @@
     const fgColor = document.getElementById('fgColor');
     const bgColor = document.getElementById('bgColor');
     const asciiOutput = document.getElementById('asciiOutput');
-    const previewCanvas = document.getElementById('previewCanvas');
+    const imgPreviewArea = document.getElementById('imgPreviewArea');
     const statW = document.getElementById('statW');
     const statH = document.getElementById('statH');
     const statC = document.getElementById('statC');
@@ -243,10 +268,10 @@
     const btnCopy = document.getElementById('btnCopy');
 
     let currentImage = null;
+    let currentDataUrl = null;
     let colorMode = 'auto';
     let sampledColor = '#67e8f9';
 
-    // Width presets
     document.getElementById('widthPresets').querySelectorAll('button').forEach(btn => {
       btn.addEventListener('click', () => {
         widthRange.value = btn.dataset.w;
@@ -282,8 +307,18 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
+        currentDataUrl = ev.target.result;
         const img = new Image();
-        img.onload = () => { currentImage = img; convertToAscii(); };
+        img.onload = () => {
+          currentImage = img;
+          // Use a proper <img> tag for the preview — reliable, no canvas sizing issues
+          imgPreviewArea.innerHTML = '';
+          const previewImg = document.createElement('img');
+          previewImg.src = currentDataUrl;
+          previewImg.alt = 'Original uploaded image';
+          imgPreviewArea.appendChild(previewImg);
+          convertToAscii();
+        };
         img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
@@ -291,7 +326,6 @@
 
     function getCharset() {
       const raw = charsetSelect.value;
-      // handle HTML entities in option values
       const d = document.createElement('div');
       d.innerHTML = raw;
       return d.textContent || raw;
@@ -312,12 +346,6 @@
       const ctx = offscreen.getContext('2d');
       ctx.drawImage(currentImage, 0, 0, charW, charH);
       const data = ctx.getImageData(0, 0, charW, charH).data;
-
-      // Draw original to preview canvas
-      previewCanvas.width = currentImage.width;
-      previewCanvas.height = currentImage.height;
-      const pCtx = previewCanvas.getContext('2d');
-      pCtx.drawImage(currentImage, 0, 0);
 
       let lines = [];
       let colorLines = [];
@@ -428,7 +456,6 @@
     });
 
     asciiOutput.value = 'Upload an image to start converting.';
-    convertToAscii();
   </script>
 </body>
 </html>
